@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flower Classifier</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Lato:wght@300;400;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:         #0f0e0b;
+      --surface:    #1a1810;
+      --card:       #201e14;
+      --border:     #3a3620;
+      --text:       #e8e0cc;
+      --muted:      #8a8060;
+      --green:      #4a7c45;
+      --green-lt:   #6aab63;
+      --accent:     #c8b560;
+    }
+
+    body {
+      font-family: 'Lato', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background-image:
+        radial-gradient(ellipse at 10% 0%, #1e2e1a 0%, transparent 50%),
+        radial-gradient(ellipse at 90% 100%, #1a1508 0%, transparent 50%);
+    }
+
+    header {
+      padding: 3rem 2rem 2.5rem;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, #141a10 0%, transparent 100%);
+      position: relative;
+      overflow: hidden;
+    }
+    header::before {
+      content: '❧';
+      position: absolute;
+      font-size: 12rem;
+      opacity: 0.03;
+      top: -2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      pointer-events: none;
+    }
+    .header-tag {
+      display: inline-block;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--green-lt);
+      border: 1px solid var(--green);
+      padding: 0.2rem 0.8rem;
+      border-radius: 999px;
+      margin-bottom: 1rem;
+    }
+    header h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(2.2rem, 5vw, 3.5rem);
+      line-height: 1.1;
+      color: var(--text);
+    }
+    header h1 em { font-style: italic; color: var(--accent); }
+    header .subtitle {
+      margin-top: 0.6rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+      font-weight: 300;
+    }
+
+    main {
+      flex: 1;
+      max-width: 1020px;
+      margin: 0 auto;
+      width: 100%;
+      padding: 2.5rem 1.5rem;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+      align-items: start;
+    }
+    @media (max-width: 660px) { main { grid-template-columns: 1fr; } }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.75rem;
+    }
+    .card h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.2rem;
+      color: var(--accent);
+      margin-bottom: 0.4rem;
+    }
+    .card-intro {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-bottom: 1.25rem;
+      line-height: 1.5;
+    }
+
+    .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+    .field { margin-bottom: 0.85rem; }
+    .field label {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      margin-bottom: 0.35rem;
+    }
+    .input-wrap {
+      display: flex;
+      align-items: center;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      background: #161410;
+      transition: border-color 0.2s;
+    }
+    .input-wrap:focus-within {
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(74,124,69,0.15);
+    }
+    .input-wrap input {
+      flex: 1;
+      border: none;
+      outline: none;
+      padding: 0.6rem 0.75rem;
+      font-family: 'Lato', sans-serif;
+      font-size: 0.95rem;
+      background: transparent;
+      color: var(--text);
+    }
+    .input-wrap input::placeholder { color: #4a4535; }
+    .unit {
+      padding: 0 0.7rem;
+      font-size: 0.75rem;
+      color: var(--muted);
+      border-left: 1px solid var(--border);
+      height: 100%;
+      display: flex;
+      align-items: center;
+    }
+    .hint { font-size: 0.7rem; color: #5a5240; margin-top: 0.2rem; }
+
+    .btn {
+      width: 100%;
+      padding: 0.85rem;
+      background: var(--green);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-family: 'Lato', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      cursor: pointer;
+      margin-top: 0.5rem;
+      transition: background 0.2s, transform 0.1s;
+    }
+    .btn:hover { background: var(--green-lt); }
+    .btn:active { transform: scale(0.98); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .error-msg {
+      background: #2a1010;
+      border: 1px solid #5a2020;
+      border-radius: 8px;
+      padding: 0.7rem 1rem;
+      font-size: 0.85rem;
+      color: #e07070;
+      margin-top: 0.75rem;
+      display: none;
+    }
+
+    #result-card { display: none; }
+    .species-badge {
+      display: inline-block;
+      padding: 0.25rem 0.8rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #fff;
+      margin-bottom: 0.6rem;
+    }
+    .species-name {
+      font-family: 'Playfair Display', serif;
+      font-style: italic;
+      font-size: 2rem;
+      line-height: 1.2;
+    }
+    .species-desc {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin: 0.85rem 0 1.25rem;
+      line-height: 1.6;
+    }
+    .conf-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      margin-bottom: 0.4rem;
+    }
+    .conf-bar-bg { height: 7px; background: #2a2820; border-radius: 99px; overflow: hidden; }
+    .conf-bar { height: 100%; border-radius: 99px; transition: width 0.8s cubic-bezier(.4,0,.2,1); }
+    .conf-value { font-size: 1.7rem; font-weight: 700; margin-top: 0.3rem; color: var(--accent); }
+    .confidence-block { margin-bottom: 1.25rem; }
+
+    .prob-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.55rem; }
+    .prob-species { font-size: 0.78rem; width: 130px; flex-shrink: 0; color: var(--muted); }
+    .prob-bar-bg { flex: 1; height: 5px; background: #2a2820; border-radius: 99px; overflow: hidden; }
+    .prob-bar { height: 100%; border-radius: 99px; transition: width 0.7s ease; }
+    .prob-pct { font-size: 0.75rem; width: 38px; text-align: right; color: var(--muted); }
+
+    .reference-card { grid-column: 1 / -1; }
+    .ref-section-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: var(--muted);
+      margin: 1.1rem 0 0.6rem;
+      padding-bottom: 0.4rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .species-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.9rem;
+    }
+    @media (max-width: 580px) { .species-grid { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 380px) { .species-grid { grid-template-columns: 1fr; } }
+
+    .species-tile {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.1rem;
+      background: #181610;
+      transition: border-color 0.2s;
+    }
+    .species-tile:hover { border-color: var(--green); }
+    .tile-top { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; }
+    .tile-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    .tile-tag { font-size: 0.65rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+    .tile-name { font-family: 'Playfair Display', serif; font-style: italic; font-size: 1rem; margin-bottom: 0.35rem; }
+    .tile-desc { font-size: 0.78rem; color: var(--muted); line-height: 1.55; margin-bottom: 0.6rem; }
+    .tile-ranges span { display: block; font-size: 0.72rem; color: #5a5240; }
+
+    .divider { grid-column: 1 / -1; border: none; border-top: 1px solid var(--border); margin: 0.25rem 0; }
+
+    footer {
+      text-align: center;
+      padding: 1.5rem;
+      font-size: 0.75rem;
+      color: #4a4535;
+      border-top: 1px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-tag">&#127807; HG Botany</div>
+  <h1>Flower <em>Classifier</em></h1>
+  <p class="subtitle">HG Garden</p>
+</header>
+
+<main>
+
+  <div class="card">
+    <h2>Measurements</h2>
+    <p class="card-intro">Enter petal and sepal measurements below to identify the species.</p>
+
+    <div class="field-row">
+      <div class="field">
+        <label>Sepal Length</label>
+        <div class="input-wrap">
+          <input type="number" id="sepal_length" step="0.1" placeholder="5.1" />
+          <span class="unit">cm</span>
+        </div>
+        <div class="hint">Iris 4.3–7.9 · Others up to 9.5</div>
+      </div>
+      <div class="field">
+        <label>Sepal Width</label>
+        <div class="input-wrap">
+          <input type="number" id="sepal_width" step="0.1" placeholder="3.5" />
+          <span class="unit">cm</span>
+        </div>
+        <div class="hint">Iris 2.0–4.4 · Others up to 5.5</div>
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label>Petal Length</label>
+        <div class="input-wrap">
+          <input type="number" id="petal_length" step="0.1" placeholder="1.4" />
+          <span class="unit">cm</span>
+        </div>
+        <div class="hint">Iris 1.0–6.9 · Others up to 13.5</div>
+      </div>
+      <div class="field">
+        <label>Petal Width</label>
+        <div class="input-wrap">
+          <input type="number" id="petal_width" step="0.1" placeholder="0.2" />
+          <span class="unit">cm</span>
+        </div>
+        <div class="hint">Iris 0.1–2.5 · Others up to 6.5</div>
+      </div>
+    </div>
+
+    <button class="btn" id="predict-btn" onclick="predict()">Classify Flower</button>
+    <div class="error-msg" id="error-msg"></div>
+  </div>
+
+  <div class="card" id="result-card">
+    <h2>Result</h2>
+    <span class="species-badge" id="result-badge"></span>
+    <div class="species-name" id="result-name"></div>
+    <img id="result-img" src="" alt="" style="
+      width: 100%;
+      height: 180px;
+      object-fit: cover;
+      border-radius: 8px;
+      margin: 0.85rem 0 0.6rem;
+      border: 1px solid var(--border);
+      display: none;
+    " />
+    <p class="species-desc" id="result-desc"></p>
+
+    <div class="confidence-block">
+      <div class="conf-label">Confidence</div>
+      <div class="conf-bar-bg"><div class="conf-bar" id="conf-bar"></div></div>
+      <div class="conf-value" id="conf-value"></div>
+    </div>
+
+    <div class="conf-label" style="margin-bottom:0.5rem">All Probabilities</div>
+    <div id="prob-table"></div>
+  </div>
+
+  <hr class="divider" />
+
+  <div class="card reference-card">
+    <h2>Species Reference</h2>
+
+    <div class="ref-section-label">Iris Species</div>
+    <div class="species-grid">
+      <div class="species-tile">
+        <div class="tile-top"><span class="tile-dot" style="background:#6aab63"></span><span class="tile-tag">Setosa</span></div>
+        <div class="tile-name">Iris Setosa</div>
+        <div class="tile-desc">A species of flowering plant in the genus Iris of the family Iridaceae. It belongs to the subgenus Limniris and the series Tripetalae. It is a rhizomatous perennial found in a wide range across and below the Arctic Circle, including in Alaska, Maine, Canada (including British Columbia, Newfoundland, Quebec and Yukon), Russia (including Siberia), China, Korea, and Japan. The plant has tall branching stems, mid green leaves and violet, purple-blue, violet-blue, blue, or lavender flowers, or, rarely, pink or white flowers.</div>
+        <div class="tile-ranges">
+          <span>Sepal: 4.3–5.8 × 2.3–4.4 cm</span>
+          <span>Petal: 1.0–1.9 × 0.1–0.6 cm</span>
+        </div>
+      </div>
+      <div class="species-tile">
+        <div class="tile-top"><span class="tile-dot" style="background:#a87d50"></span><span class="tile-tag">Versicolor</span></div>
+        <div class="tile-name">Iris Versicolor</div>
+        <div class="tile-desc">A species of Iris native to North America, in Eastern Canada and the Eastern United States. It is common in sedge meadows, marshes, and along streambanks and shores. The specific epithet versicolor means "variously coloured".</div>
+        <div class="tile-ranges">
+          <span>Sepal: 4.9–7.0 × 2.0–3.4 cm</span>
+          <span>Petal: 3.0–5.1 × 1.0–1.8 cm</span>
+        </div>
+      </div>
+      <div class="species-tile">
+        <div class="tile-top"><span class="tile-dot" style="background:#7b6fa0"></span><span class="tile-tag">Virginica</span></div>
+        <div class="tile-name">Iris Virginica</div>
+        <div class="tile-desc">Large wetland iris from eastern North America. The largest of the three iris species, with broad, sweeping petals.</div>
+        <div class="tile-ranges">
+          <span>Sepal: 4.9–7.9 × 2.2–3.8 cm</span>
+          <span>Petal: 4.5–6.9 × 1.4–2.5 cm</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="ref-section-label">Garden Flowers</div>
+    <div class="species-grid">
+      <div class="species-tile">
+        <div class="tile-top"><span class="tile-dot" style="background:#b85555"></span><span class="tile-tag">Rose</span></div>
+        <div class="tile-name">Rose</div>
+        <div class="tile-desc">Rose, (genus Rosa), genus of some 100 species of perennial shrubs in the rose family (Rosaceae). Roses are native primarily to the temperate regions of the Northern Hemisphere. Many roses are cultivated for their beautiful flowers, which range in colour from white through various tones of yellow and pink to dark crimson and maroon, and most have a delightful fragrance, which varies according to the variety and to climatic conditions.</div>
+        <div class="tile-ranges">
+          <span>Sepal: 3.8–4.6 × 2.1–2.9 cm</span>
+          <span>Petal: 5.8–7.2 × 3.3–4.3 cm</span>
+        </div>
+      </div>
+      <div class="species-tile">
+        <div class="tile-top"><span class="tile-dot" style="background:#c47a3a"></span><span class="tile-tag">Tulip</span></div>
+        <div class="tile-name">Tulip</div>
+        <div class="tile-desc">Tulip, (genus Tulipa), genus of about 100 species of bulbous herbs in the lily family, many of which are cultivated in temperate regions for their showy blooms. Native to Central Asia and Turkey, tulips are among the most popular of all garden flowers, and numerous cultivars and varieties have been developed.</div>
+        <div class="tile-ranges">
+          <span>Sepal: 5.0–6.0 × 3.3–4.3 cm</span>
+          <span>Petal: 6.5–7.9 × 1.7–2.7 cm</span>
+        </div>
+      </div>
+      <div class="species-tile">
+        <div class="tile-top"><span class="tile-dot" style="background:#c8a820"></span><span class="tile-tag">Sunflower</span></div>
+        <div class="tile-name">Sunflower</div>
+        <div class="tile-desc">Sunflower, (genus Helianthus), genus of nearly 70 species of herbaceous plants of the aster family (Asteraceae). Sunflowers are native primarily to North and South America, and some species are cultivated as ornamentals for their spectacular size and flower heads and for their edible seeds. The Jerusalem artichoke (Helianthus tuberosus) is cultivated for its edible underground tubers.</div>
+        <div class="tile-ranges">
+          <span>Sepal: 7.8–9.2 × 4.0–5.0 cm</span>
+          <span>Petal: 11.0–13.0 × 5.0–6.0 cm</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<footer>Flower Classification System &nbsp;·&nbsp; HG Garden & Forest &nbsp;·&nbsp; </footer>
+
+<script>
+  const COLORS = {
+    'Iris Setosa':     '#6aab63',
+    'Iris Versicolor': '#a87d50',
+    'Iris Virginica':  '#7b6fa0',
+    'Rose':            '#b85555',
+    'Tulip':           '#c47a3a',
+    'Sunflower':       '#c8a820'
+  };
+
+  async function predict() {
+    const btn = document.getElementById('predict-btn');
+    const err = document.getElementById('error-msg');
+    err.style.display = 'none';
+
+    const vals = {
+      sepal_length: document.getElementById('sepal_length').value,
+      sepal_width:  document.getElementById('sepal_width').value,
+      petal_length: document.getElementById('petal_length').value,
+      petal_width:  document.getElementById('petal_width').value
+    };
+
+    if (Object.values(vals).some(v => v === '')) {
+      err.textContent = 'Please fill in all four measurements.';
+      err.style.display = 'block';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Classifying…';
+
+    try {
+      const res = await fetch('/predict', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(vals)
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      showResult(data);
+    } catch (e) {
+      err.textContent = e.message || 'Prediction failed. Please check your connection';
+      err.style.display = 'block';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Classify Flower';
+    }
+  }
+
+  function showResult(data) {
+    const color = COLORS[data.species] || '#888';
+
+    document.getElementById('result-badge').textContent = data.species.toUpperCase();
+    document.getElementById('result-badge').style.background = color;
+    document.getElementById('result-name').textContent = data.species;
+
+    const img = document.getElementById('result-img');
+    img.src = `/static/images/${data.species}.jpg`;
+    img.alt = data.species;
+    img.style.display = 'block';
+    img.onerror = () => { img.style.display = 'none'; };
+
+    document.getElementById('result-desc').textContent = data.info.description;
+
+    document.getElementById('conf-bar').style.background = color;
+    document.getElementById('conf-bar').style.width = data.confidence + '%';
+    document.getElementById('conf-value').textContent = data.confidence.toFixed(1) + '%';
+
+    const table = document.getElementById('prob-table');
+    table.innerHTML = '';
+    for (const [species, pct] of Object.entries(data.probabilities)) {
+      table.innerHTML += `
+        <div class="prob-row">
+          <span class="prob-species">${species}</span>
+          <div class="prob-bar-bg">
+            <div class="prob-bar" style="width:${pct}%;background:${COLORS[species]}"></div>
+          </div>
+          <span class="prob-pct">${pct}%</span>
+        </div>`;
+    }
+
+    const card = document.getElementById('result-card');
+    card.style.display = 'block';
+    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  document.addEventListener('keydown', e => { if (e.key === 'Enter') predict(); });
+</script>
+</body>
+</html>
